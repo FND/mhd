@@ -13,17 +13,9 @@ class Request(object):
 
 
 @async
-def dispatch(req, res):
-    res.write(b" ".join((req.method, req.path)))
-    #res.write(req.headers)
-    #res.write(req.body)
-    res.write(b"\nlorem ipsum\ndolor sit amet\n\n...")
-
-
-@async
-def process_request(input_stream, output_stream):
+def process_request(input_stream, output_stream, request_handler):
     req = yield from _parse_request(input_stream)
-    yield from dispatch(req, output_stream)
+    yield from request_handler(req, output_stream)
     output_stream.close()
 
 
