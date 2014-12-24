@@ -7,10 +7,10 @@ from mhd.server import start_server
 
 @async
 def dispatch(req, res): # XXX: DEBUG; for demo purposes only
-    res.write(b" ".join((req.method, req.path)))
-    #res.write(req.headers)
-    #res.write(req.body)
-    res.write(b"\nlorem ipsum\ndolor sit amet\n\n...")
+    res.status(200)
+    res.header("Content-Length", "38")
+    res.body(b" ".join((req.method, req.path)) + b"\n")
+    res.body(b"lorem ipsum\ndolor sit amet\n\n...\n")
 
 
 if __name__ == "__main__":
