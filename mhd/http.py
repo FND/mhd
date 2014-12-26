@@ -7,7 +7,7 @@ from asyncio import coroutine as async
 class Request(object):
 
     def __init__(self, method, path, headers, body):
-        self.method = method
+        self.method = method.upper()
         self.path = path
         self.headers = headers
         self.body = body
@@ -26,7 +26,7 @@ class Response(object): # TODO: verify order? (status < headers < body)
         self._writeline(b" ".join((b"HTTP/1.1", status_code, reason_phrase)))
 
     def header(self, name, value):
-        name = bytes(name, encoding="ascii") # XXX: encoding?
+        name = bytes(_normalize_header(name), encoding="ascii") # XXX: encoding?
         value = bytes(value, encoding="utf-8") # XXX: encoding?
         self._writeline(b": ".join((name, value)))
 
@@ -68,8 +68,12 @@ def _extract_headers(input_stream):
             break
 
         name, value = line.split(b":", 1)
-        name = name.decode("ascii").strip() # TODO: normalize capitalization
+        name = _normalize_header(name.decode("ascii").strip()) # TODO: move normalization into `Request`
         value = value.decode("utf-8").strip() # XXX: UTF-8 as de-facto standard?
         headers[name] = value
 
     return headers
+
+
+def _normalize_header(name): # XXX: overly simplistic?
+    return "-".join(part.capitalize() for part in name.split("-"))
