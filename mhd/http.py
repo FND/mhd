@@ -6,9 +6,9 @@ from asyncio import coroutine as async
 
 class Request(object):
 
-    def __init__(self, method, path, headers, body):
+    def __init__(self, method, uri, headers, body):
         self.method = method.upper()
-        self.path = path
+        self.uri = uri
         self.headers = headers
         self.body = body
 
@@ -51,11 +51,11 @@ def process_request(input_stream, output_stream, request_handler):
 @async
 def _parse_request(input_stream):
     request_line = yield from input_stream.readline()
-    method, path, _ = request_line.strip().split(b" ") # XXX: brittle? -- TODO: decode (encoding?)
+    method, uri, _ = request_line.strip().split(b" ") # XXX: brittle? -- TODO: decode (encoding?)
 
     headers = yield from _extract_headers(input_stream)
 
-    return Request(method, path, headers, input_stream)
+    return Request(method, uri, headers, input_stream)
 
 
 @async
