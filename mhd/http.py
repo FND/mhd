@@ -4,13 +4,33 @@ from http.client import responses
 from asyncio import coroutine as async
 
 
+# FIXME:
+# * constructor must not be coroutine (generator), but separate `init` is fugly
+# * verify decorator combinations (coroutine + property) are correct
 class Request(object):
 
-    def __init__(self, method, uri, headers, body):
+    def __init__(self, input_stream):
+        self._stream = input_stream
+
+    @async
+    def init(self):
+        request_line = yield from self._stream.readline()
+        method, uri, _ = request_line.strip().split(b" ") # XXX: brittle? -- TODO: decode (encoding?)
         self.method = method.upper()
         self.uri = uri
-        self.headers = headers
-        self.body = body
+
+    @async
+    @property
+    def headers(self):
+        if not getattr(self, "_headers", None):
+            self._headers = yield from _extract_headers(self._stream)
+        return self._headers
+
+    @async
+    @property
+    def body(self):
+        yield from self.headers() # ensures headers have been consumed
+        return self._stream
 
 
 class Response(object): # TODO: verify order? (status < headers < body)
@@ -42,20 +62,11 @@ class Response(object): # TODO: verify order? (status < headers < body)
 
 @async
 def process_request(input_stream, output_stream, request_handler):
-    req = yield from _parse_request(input_stream)
+    req = Request(input_stream)
+    yield from req.init()
     res = Response(output_stream)
     yield from request_handler(req, res)
     output_stream.close()
-
-
-@async
-def _parse_request(input_stream):
-    request_line = yield from input_stream.readline()
-    method, uri, _ = request_line.strip().split(b" ") # XXX: brittle? -- TODO: decode (encoding?)
-
-    headers = yield from _extract_headers(input_stream)
-
-    return Request(method, uri, headers, input_stream)
 
 
 @async
