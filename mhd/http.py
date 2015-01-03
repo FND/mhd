@@ -7,7 +7,7 @@ from asyncio import coroutine as async
 # FIXME:
 # * constructor must not be coroutine (generator), but separate `parse` is fugly
 # * verify decorator combinations (coroutine + property) are correct
-class Request(object):
+class Request:
 
     def __init__(self, input_stream):
         self._stream = input_stream
@@ -52,7 +52,7 @@ class Request(object):
         self._headers = headers
 
 
-class Response(object): # TODO: verify order? (status < headers < body)
+class Response: # TODO: verify order? (status < headers < body)
 
     def __init__(self, stream):
         self.stream = stream
