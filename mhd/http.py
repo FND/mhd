@@ -21,14 +21,12 @@ class Request:
         self.uri = uri.decode("ascii")
 
     @async
-    @property
     def headers(self):
         if not getattr(self, "_headers", None):
             yield from self._extract_headers()
         return self._headers
 
     @async
-    @property
     def body(self):
         yield from self.headers() # ensures headers have been consumed
         return self._stream
