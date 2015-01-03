@@ -5,7 +5,7 @@ from asyncio import coroutine as async
 
 
 # FIXME:
-# * constructor must not be coroutine (generator), but separate `init` is fugly
+# * constructor must not be coroutine (generator), but separate `parse` is fugly
 # * verify decorator combinations (coroutine + property) are correct
 class Request(object):
 
@@ -13,11 +13,12 @@ class Request(object):
         self._stream = input_stream
 
     @async
-    def init(self):
+    def parse(self):
         request_line = yield from self._stream.readline()
-        method, uri, _ = request_line.strip().split(b" ") # XXX: brittle? -- TODO: decode (encoding?)
-        self.method = method.upper()
-        self.uri = uri
+        method, uri, _ = request_line.strip().split(b" ") # XXX: brittle?
+        # NB: it's unclear which encodings should be supported here
+        self.method = method.decode("ascii").upper()
+        self.uri = uri.decode("ascii")
 
     @async
     @property
@@ -42,12 +43,15 @@ class Response(object): # TODO: verify order? (status < headers < body)
     def status(self, status_code):
         reason_phrase = responses[status_code]
         status_code = bytes(str(status_code), encoding="ascii") # XXX: inefficient!?
-        reason_phrase = bytes(reason_phrase, encoding="ascii") # XXX: encoding?
+        reason_phrase = bytes(reason_phrase, encoding="ascii")
         self._writeline(b" ".join((b"HTTP/1.1", status_code, reason_phrase)))
 
     def header(self, name, value):
-        name = bytes(_normalize_header(name), encoding="ascii") # XXX: encoding?
-        value = bytes(value, encoding="utf-8") # XXX: encoding?
+        name = bytes(_normalize_header(name), encoding="ascii")
+        try:
+            value = bytes(value, encoding="ascii")
+        except UnicodeDecodeError: # legacy support (cf. RFC 7230)
+            value = bytes(value, encoding="iso-8859-1")
         self._writeline(b": ".join((name, value)))
 
     def body(self, data):
@@ -63,7 +67,7 @@ class Response(object): # TODO: verify order? (status < headers < body)
 @async
 def process_request(input_stream, output_stream, request_handler):
     req = Request(input_stream)
-    yield from req.init()
+    yield from req.parse()
     res = Response(output_stream)
     yield from request_handler(req, res)
     output_stream.close()
@@ -78,9 +82,12 @@ def _extract_headers(input_stream):
         if line == b"":
             break
 
-        name, value = line.split(b":", 1)
-        name = _normalize_header(name.decode("ascii").strip()) # TODO: move normalization into `Request`
-        value = value.decode("utf-8").strip() # XXX: UTF-8 as de-facto standard?
+        name, value = [item.strip() for item in line.split(b":", 1)]
+        name = _normalize_header(name.decode("ascii")) # TODO: move normalization into `Request`
+        try:
+            value = value.decode("ascii")
+        except UnicodeDecodeError:
+            value = value.decode("iso-8859-1") # legacy support (cf. RFC 7230)
         headers[name] = value
 
     return headers
