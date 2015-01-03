@@ -24,7 +24,7 @@ class Request(object):
     @property
     def headers(self):
         if not getattr(self, "_headers", None):
-            self._headers = yield from _extract_headers(self._stream)
+            yield from self._extract_headers()
         return self._headers
 
     @async
@@ -32,6 +32,24 @@ class Request(object):
     def body(self):
         yield from self.headers() # ensures headers have been consumed
         return self._stream
+
+    @async
+    def _extract_headers(self):
+        headers = {}
+        while True:
+            line = yield from self._stream.readline()
+            if line.strip() == b"":
+                break
+
+            name, value = [item.strip() for item in line.split(b":", 1)]
+            name = _normalize_header(name.decode("ascii"))
+            try:
+                value = value.decode("ascii")
+            except UnicodeDecodeError: # legacy support (cf. RFC 7230)
+                value = value.decode("iso-8859-1")
+            headers[name] = value
+
+        self._headers = headers
 
 
 class Response(object): # TODO: verify order? (status < headers < body)
@@ -71,26 +89,6 @@ def process_request(input_stream, output_stream, request_handler):
     res = Response(output_stream)
     yield from request_handler(req, res)
     output_stream.close()
-
-
-@async
-def _extract_headers(input_stream):
-    headers = {}
-    while True:
-        line = yield from input_stream.readline()
-        line = line.strip()
-        if line == b"":
-            break
-
-        name, value = [item.strip() for item in line.split(b":", 1)]
-        name = _normalize_header(name.decode("ascii")) # TODO: move normalization into `Request`
-        try:
-            value = value.decode("ascii")
-        except UnicodeDecodeError:
-            value = value.decode("iso-8859-1") # legacy support (cf. RFC 7230)
-        headers[name] = value
-
-    return headers
 
 
 def _normalize_header(name): # XXX: overly simplistic?
