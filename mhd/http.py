@@ -52,9 +52,9 @@ class Request:
 
 class Response: # TODO: verify order? (status < headers < body)
 
-    def __init__(self, stream):
-        self.stream = stream
-        self._meta_over = False
+    def __init__(self, output_stream):
+        self._stream = output_stream
+        self._meta_over = False # TODO: rename
 
     def status(self, status_code):
         reason_phrase = responses[status_code]
@@ -74,10 +74,10 @@ class Response: # TODO: verify order? (status < headers < body)
         if not self._meta_over:
             self._writeline(b"")
             self._meta_over = True
-        self.stream.write(data)
+        self._stream.write(data)
 
     def _writeline(self, data):
-        self.stream.write(data + b"\r\n")
+        self._stream.write(data + b"\r\n")
 
 
 @async
