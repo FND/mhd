@@ -42,16 +42,16 @@ class Response(object): # TODO: verify order? (status < headers < body)
 
     def status(self, status_code):
         reason_phrase = responses[status_code]
-        status_code = bytes(str(status_code), encoding="ascii") # XXX: inefficient!?
-        reason_phrase = bytes(reason_phrase, encoding="ascii")
+        status_code = str(status_code).encode("ascii")
+        reason_phrase = reason_phrase.encode("ascii")
         self._writeline(b" ".join((b"HTTP/1.1", status_code, reason_phrase)))
 
     def header(self, name, value):
-        name = bytes(_normalize_header(name), encoding="ascii")
+        name = _normalize_header(name).encode("ascii")
         try:
-            value = bytes(value, encoding="ascii")
+            value = value.encode("ascii")
         except UnicodeDecodeError: # legacy support (cf. RFC 7230)
-            value = bytes(value, encoding="iso-8859-1")
+            value = value.encode("iso-8859-1")
         self._writeline(b": ".join((name, value)))
 
     def body(self, data):
