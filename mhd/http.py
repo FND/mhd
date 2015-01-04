@@ -3,6 +3,7 @@ import asyncio
 from http.client import responses
 from asyncio import coroutine as async
 
+# TODO: move classes elsewhere
 
 # FIXME:
 # * constructor must not be coroutine (generator), but separate `parse` is fugly
@@ -28,8 +29,17 @@ class Request:
 
     @async
     def body(self):
-        yield from self.headers() # ensures headers have been consumed
-        return self._stream
+        if not getattr(self, "_body", None):
+            headers = yield from self.headers() # ensures headers' consumption
+
+            length = headers.get("Content-Length")
+            if length is None and self.method in ("GET", "DELETE"): # FIXME: hard-coded, bad heuristic?
+                length = "0"
+            length = int(length, 10)
+
+            self._body = BodyReader(self._stream, length)
+
+        return self._body
 
     @async
     def _extract_headers(self):
@@ -78,6 +88,28 @@ class Response: # TODO: verify order? (status < headers < body)
 
     def _writeline(self, data):
         self._stream.write(data + b"\r\n")
+
+
+class BodyReader:
+
+    def __init__(self, input_stream, length):
+        self._stream = input_stream
+        self._length = length
+
+    @property
+    def consumed(self): # TODO: rename? (e.g. "exhausted")
+        return self._length == 0
+
+    @async
+    def read(self, length=None):
+        if length is None:
+            length = self._length
+        else:
+            length = min(self._length, length) # TODO: throw error instead?
+
+        content = yield from self._stream.read(length)
+        self._length -= length
+        return content
 
 
 @async
