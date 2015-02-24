@@ -9,8 +9,8 @@ from mhd.server import start_server
 def dispatch(req, res): # XXX: DEBUG; for demo purposes only
     res.status(200)
     res.header("Content-Length", "38")
-    info = " ".join((req.method, req.uri)).encode("ascii")
-    res.body(info + b"\n")
+    info = "%s %s\n" % (req.method, req.uri)
+    res.body(info.encode("ascii"))
     res.body(b"lorem ipsum\ndolor sit amet\n\n...\n")
 
 
